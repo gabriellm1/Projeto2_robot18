@@ -4,7 +4,7 @@
 Esta classe deve conter todas as suas implementações relevantes para seu filtro de partículas
 """
 
-from pf import Particle, create_particles
+from pf import Particle, create_particles , draw_random_sample
 import numpy as np
 import inspercles # necessário para o a função nb_lidar que simula o laser
 import math
@@ -20,7 +20,7 @@ robot = Particle(largura/2, altura/2, math.pi/4, 1.0)
 # Nuvem de particulas
 particulas = []
 
-num_particulas = 10
+num_particulas = 1000	
 
 
 # Os angulos em que o robo simulado vai ter sensores
@@ -64,14 +64,13 @@ def cria_particulas(minx=0, miny=0, maxx=largura, maxy=altura, n_particulas=num_
         Cria uma lista de partículas distribuídas de forma uniforme entre minx, miny, maxx e maxy
     """
     lista_particulas = []
-    
     for i in range(n_particulas):
+
         x = np.random.uniform(minx, maxx)
-        y = np.random.uniform(miny, maxx)
+        y = np.random.uniform(miny, maxy)
         theta = np.random.uniform(0, math.pi )
         p = Particle(x, y, theta, w=1.0) # A prob. w vai ser normalizada depois
         lista_particulas.append(p)
-    #return create_particles(robot.pose(),(maxx/2),(maxy/2),math.pi,n_particulas)
     return lista_particulas
     
 def move_particulas(particulas, movimento):
@@ -85,7 +84,7 @@ def move_particulas(particulas, movimento):
         Você não precisa mover o robô. O código fornecido pelos professores fará isso
         
     """
-     for p in particulas:
+    for p in particulas:
         p.move_relative([norm.rvs(movimento[0],1.5),norm.rvs(movimento[1],0.02)])
 
     return particulas
@@ -107,22 +106,23 @@ def leituras_laser_evidencias(robot, particulas):
     leitura_robo = inspercles.nb_lidar(robot, angles)
     for p in particulas:
         lp = inspercles.nb_lidar(p,angles)
-        phd = 1
+        phd = 0
         for lt in lp:
             for lr in leitura_robo:
-                phid = math.exp((-lp[lt]+leitura_robo[lr])/2*(math.pow(1.5,2))) 
-        
-        phd *= phid 
-        p.w = phd
+                pdhi = math.exp((-(lp[lt]-leitura_robo[lr])**2)/(2*(math.pow(1.5,2))))
+                #pdhi = norm.pdf(lp[lt],loc=leitura_robo[lr],scale=1.5)
+                phd += pdhi
+
+        p.w *= phd
 
     # descobrindo alpha
     lista_a =[]
     for p in particulas:
         lista_a.append(p.w)
-    alpha = 1/sum(lista_a)
+    alpha = 1/(sum(lista_a))
 
     for p in particulas:
-        p.x = (p.x)*alpha
+        p.w = (p.w)*alpha
 
 
 
@@ -143,6 +143,15 @@ def reamostrar(particulas, n_particulas = num_particulas):
         
         Use 1/n ou 1, não importa desde que seja a mesma
     """
+
+    particulas_pesos = [p.w for p in particulas]
+    print(particulas_pesos)
+    particulas = draw_random_sample(particulas, particulas_pesos, num_particulas)
+    for p in particulas:
+    	p.x = norm.rvs(p.x,10)
+    	p.y = norm.rvs(p.y,10)
+    	p.theta = norm.rvs(p.theta,0.09)
+    	p.w = 1 
     return particulas
 
 
